@@ -15,9 +15,27 @@ java {
 
 repositories {
 	mavenCentral()
+	mavenLocal()
+	def ghPackageRepos = [
+			'https://maven.pkg.github.com/ammad-qureshi-dev/bidder-notification-service',
+			'https://maven.pkg.github.com/ammad-qureshi-dev/catalog-model-service',
+			'https://maven.pkg.github.com/ammad-qureshi-dev/bidder-identity-and-auth-service'
+	]
+
+	ghPackageRepos.each { repoUrl ->
+		maven {
+			url = uri(repoUrl)
+			credentials {
+				username = System.getenv('BIDDER_USERNAME')
+				password = System.getenv('BIDDER_GITHUB_TOKEN')
+			}
+		}
+	}
 }
 
 dependencies {
+	implementation project(':bidding-model')
+
 	implementation 'org.springframework.boot:spring-boot-starter'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

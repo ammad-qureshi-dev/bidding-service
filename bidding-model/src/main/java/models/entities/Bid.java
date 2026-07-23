@@ -18,19 +18,24 @@ import java.util.UUID;
 @Entity
 @Table(schema = "bidding_service", name = "bid")
 @EqualsAndHashCode(callSuper = true)
-@ToString(exclude = {"item", "bidder"})
 public class Bid extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-//	@ManyToOne(fetch = FetchType.LAZY)
-//	@JoinColumn(name = "bidder")
-//	private AppUser bidder;
+	// References AppUser.id owned by identity-auth-service; no cross-service JPA relation
+	@NotNull
+	@Column(name = "bidder_id")
+	private UUID bidderId;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "item")
-	private Item item;
+	// References Item.id and Auction.id owned by catalog-service; no cross-service JPA relation
+	@NotNull
+	@Column(name = "item_id")
+	private UUID itemId;
+
+	@NotNull
+	@Column(name = "auction_id")
+	private UUID auctionId;
 
 	@NotNull @DecimalMin("0.0")
 	private BigDecimal amount;
@@ -40,8 +45,8 @@ public class Bid extends BaseEntity {
 
 	private String statusDescription;
 
-	// Field populated from the Client
-	private LocalDateTime placedAt;
+	@Builder.Default
+	private LocalDateTime placedAt = LocalDateTime.now();
 
 	// Defaults to auction end time
 	private LocalDateTime expiresAt;
