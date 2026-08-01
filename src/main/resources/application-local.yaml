@@ -23,6 +23,13 @@ spring:
   output:
     ansi:
       enabled: ALWAYS
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: auth-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
   port: 8083
@@ -31,3 +38,14 @@ logging:
   level:
     root: info
     com.bidder.bidding-service: info
+
+bidder-internal-services:
+  identity-and-auth-service: http://localhost:8080/bidding
+  catalog-service: http://localhost:8082/catalog
+
+identity-and-auth-service:
+  get-preferred-contact: /contacts/preferred-contact-method
+
+catalog-service:
+  get-item-by-id: /{itemId}
+

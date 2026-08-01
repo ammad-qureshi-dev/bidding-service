@@ -3,16 +3,24 @@ bidder.app */
 package com.bidder.bidding_service.services;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.bidder.bidding_service.http_client.CatalogServiceClient;
 import com.bidder.bidding_service.mappers.BidMapper;
 import com.bidder.bidding_service.repository.BidRepository;
+import com.bidder.bidding_service.utils.BidValidator;
+import config.EventTopics;
+import dtos.response.ItemResponse;
 import lombok.RequiredArgsConstructor;
+import models.TemplateName;
 import models.dtos.request.BidRequest;
+import models.dtos.request.SendNotificationRequest;
 import models.dtos.response.summary.BidSummaryResponse;
 import models.entities.Bid;
 import models.entities.BidStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class BidService {
 
 	private final BidRepository bidRepository;
+	private final CatalogServiceClient catalogServiceClient;
+	private final KafkaTemplate<String, Object> kafkaTemplate;
+
 
 	@Transactional
 	public UUID createBid(BidRequest request, UUID bidderId) {
@@ -30,7 +41,7 @@ public class BidService {
 		var bid = BidMapper.requestToEntity(request);
 		bid.setBidderId(bidderId);
 
-		validateBid(bid);
+		validateBidCreation(bid, request.itemId());
 
 		var previousActiveBid = bidRepository.findByItemIdAndStatus(bid.getItemId(), BidStatus.ACTIVE);
 		previousActiveBid.ifPresent(prev -> {
@@ -42,6 +53,13 @@ public class BidService {
 		bidRepository.save(bid);
 
 		// ToDo: publish "bid placed" notification event once Kafka wiring is added
+		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
+				new SendNotificationRequest(
+						bidderId,
+						TemplateName.BID_REQUEST_SENT,
+						Map.of(),
+						Map.of()
+				));
 
 		return bid.getId();
 	}
@@ -50,14 +68,10 @@ public class BidService {
 	public UUID updateBid(UUID bidId, BidRequest request, UUID bidderId) {
 		var previousBid = getBidById(bidId);
 
-		if (!isOriginalBidder(previousBid, bidderId)) {
-			throw new IllegalStateException("The original bidder can only place this bid");
-		}
-
 		var newBid = BidMapper.requestToEntity(request);
 		newBid.setBidderId(bidderId);
 
-		validateBid(newBid);
+		validateBidUpdate(previousBid, bidderId, newBid, request.itemId());
 
 		// De-activate old bid
 		previousBid.setStatus(BidStatus.OUTBID);
@@ -67,6 +81,7 @@ public class BidService {
 		bidRepository.save(newBid);
 
 		// ToDo: publish "bid updated" notification event once Kafka wiring is added
+
 
 		return newBid.getId();
 	}
@@ -140,34 +155,49 @@ public class BidService {
 		});
 	}
 
-	private boolean isHighestBid(Bid newBid) {
-		var current = bidRepository.findByItemIdAndStatus(newBid.getItemId(), BidStatus.ACTIVE);
-
-		if (current.isEmpty()) {
-			return true;
-		}
-
-		var currentBid = current.get();
-
-		if (newBid.getAmount().compareTo(currentBid.getAmount()) > 0) {
-			return true;
-		}
-
-		return newBid.getAmount().compareTo(currentBid.getAmount()) == 0
-				&& newBid.getPlacedAt().isBefore(currentBid.getPlacedAt());
-	}
-
-	private boolean isOriginalBidder(Bid bid, UUID bidderId) {
-		return bid.getBidderId().equals(bidderId);
-	}
-
-	private void validateBid(Bid newBid) {
-		if (!isHighestBid(newBid)) {
+	public void validateBidCreation(Bid newBid, UUID itemId) {
+		var item = catalogServiceClient.getItemById(itemId);
+		if (!isHighestBid(newBid, item)) {
 			throw new IllegalStateException("Bid amount must be higher than the current highest bid");
 		}
 
-		// ToDo: validate bid amount against the item's minimum price and the
-		// auction's time window via a call to catalog-service once inter-service
-		// communication is wired up
+		if (!isAboveMinimumPrice(newBid, item)) {
+			throw new IllegalStateException("Bid amount must be higher than the minimum price on the item");
+		}
+	}
+
+	public void validateBidUpdate(Bid prevBid, UUID bidderId, Bid newBid, UUID itemId) {
+		var item = catalogServiceClient.getItemById(itemId);
+		if (!isHighestBid(newBid, item)) {
+			throw new IllegalStateException("Bid amount must be higher than the current highest bid");
+		}
+
+		if (!isAboveMinimumPrice(newBid, item)) {
+			throw new IllegalStateException("Bid amount must be higher than the minimum price on the item");
+		}
+
+		if (!isOriginalBidder(prevBid, bidderId)) {
+			throw new IllegalStateException("The original bidder can only place this bid");
+		}
+	}
+
+	private static boolean isOriginalBidder(Bid bid, UUID bidderId) {
+		return bid.getBidderId().equals(bidderId);
+	}
+
+	private static boolean isHighestBid(Bid newBid, ItemResponse item) {
+		if (item.highestBidId() == null || item.highestBidAmount() == null) {
+			return true;
+		}
+
+		return item.highestBidAmount().compareTo(newBid.getAmount()) > 0;
+	}
+
+	private static boolean isAboveMinimumPrice(Bid newBid, ItemResponse item) {
+		if (item.minimumPrice() == null) {
+			return newBid.getAmount() != null;
+		}
+
+		return newBid.getAmount().compareTo(item.minimumPrice()) > -1;
 	}
 }

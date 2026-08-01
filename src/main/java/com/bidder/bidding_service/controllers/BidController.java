@@ -5,7 +5,6 @@ package com.bidder.bidding_service.controllers;
 import java.util.List;
 import java.util.UUID;
 
-import com.bidder.bidding_service.models.response.ApiResponse;
 import com.bidder.bidding_service.services.BidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,13 +14,13 @@ import models.dtos.response.summary.BidSummaryResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import response.ApiResponse;
 
-import static com.bidder.bidding_service.utils.Constants.Controller.BASE_URI;
-import static com.bidder.bidding_service.utils.Constants.Controller.V1;
+import static com.bidder.bidding_service.utils.Constants.Controller.*;
 
 @Slf4j
 @RestController
-@RequestMapping(BASE_URI + V1 + "/bid")
+@RequestMapping(BASE_URI_V1 + "/bid")
 @RequiredArgsConstructor
 public class BidController {
 
@@ -31,7 +30,7 @@ public class BidController {
 	// inter-service auth propagation (e.g. gateway-forwarded header) is wired up
 	@PostMapping
 	public ResponseEntity<ApiResponse<UUID>> createBid(@RequestHeader("X-App-User-Id") UUID bidderId,
-			@RequestBody BidRequest request) {
+																@RequestBody BidRequest request) {
 		var response = bidService.createBid(request, bidderId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<UUID>builder().data(response).build());
 	}

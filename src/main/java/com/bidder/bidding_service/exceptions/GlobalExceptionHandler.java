@@ -5,14 +5,14 @@ package com.bidder.bidding_service.exceptions;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import com.bidder.bidding_service.models.response.ApiResponse;
-import com.bidder.bidding_service.models.response.Message;
-import com.bidder.bidding_service.models.response.MessageType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import response.ApiMessage;
+import response.ApiResponse;
+import response.ResponseType;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
 	}
 
 	private static ApiResponse<?> generateResponseBody(String exceptionMessage) {
-		var message = Message.builder().type(MessageType.ERROR).content(exceptionMessage).build();
+		var message = ApiMessage.builder().type(ResponseType.ERROR).content(exceptionMessage).build();
 
 		return ApiResponse.builder().data(null).messages(List.of(message)).build();
 	}
