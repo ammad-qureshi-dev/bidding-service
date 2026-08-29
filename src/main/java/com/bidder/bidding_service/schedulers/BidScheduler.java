@@ -9,6 +9,7 @@ import com.bidder.bidding_service.services.BidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.entities.BidStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,9 +24,18 @@ public class BidScheduler {
 	private final BidService bidService;
 	private final BidRepository bidRepository;
 
+	@Value("${flag.runRecomputeHighestBidsAfterBidExpires}")
+	private boolean runRecomputeHighestBidsAfterBidExpires;
+
 	@Transactional
 	@Scheduled(fixedRate = 60000)
 	public void recomputeHighestBidsAfterBidExpires() {
+
+		if (!runRecomputeHighestBidsAfterBidExpires) {
+			log.info("RecomputeHighestBidsAfterBidExpires flag off");
+			return;
+		}
+
 		log.info("BidScheduler: starting recomputeHighestBidsAfterBidExpires job...");
 
 		var itemIdsWithExpiredBids = bidRepository.findItemIdsWithExpiredBids();

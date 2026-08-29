@@ -28,7 +28,7 @@ public class BidMapper {
 			return null;
 		}
 
-		return new BidSummaryResponse(b.getId(), b.getItemId(), b.getAmount(), b.getStatus(), b.getStatusDescription(),
+		return new BidSummaryResponse(b.getId(), b.getItemId(), b.getBidderId(), b.getAmount(), b.getStatus(), b.getStatusDescription(),
 				b.getPlacedAt(), b.getExpiresAt());
 	}
 }

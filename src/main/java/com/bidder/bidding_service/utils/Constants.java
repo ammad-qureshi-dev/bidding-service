@@ -9,7 +9,7 @@ public class Constants {
 
 	@AllArgsConstructor
 	public static class Controller {
-		public static final String BASE_URI_V1 = "/api/v1/bidding";
+		public static final String BASE_URI = "/api/bidding";
 	}
 
 	public static class Messages {

@@ -6,6 +6,6 @@ import java.util.UUID;
 
 import models.entities.BidStatus;
 
-public record BidSummaryResponse(UUID id, UUID itemId, BigDecimal amount, BidStatus status, String statusDescription,
+public record BidSummaryResponse(UUID id, UUID itemId, UUID bidderId, BigDecimal amount, BidStatus status, String statusDescription,
 		LocalDateTime placedAt, LocalDateTime expiresAt) {
 }

@@ -13,7 +13,7 @@ spring:
   jpa:
     show-sql: false
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
       naming:
         implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
@@ -34,18 +34,25 @@ spring:
 server:
   port: 8083
 
+jwt:
+  secret: ${JWT_SECRET}
+
 logging:
   level:
     root: info
     com.bidder.bidding-service: info
 
 bidder-internal-services:
-  identity-and-auth-service: http://localhost:8080/bidding
-  catalog-service: http://localhost:8082/catalog
+  identity-and-auth-service: http://localhost:8080
+  catalog-service: http://localhost:8082
 
 identity-and-auth-service:
-  get-preferred-contact: /contacts/preferred-contact-method
+  get-preferred-contact: /api/v1/identity-and-auth/app-user/contacts/preferred-contact-method
 
 catalog-service:
-  get-item-by-id: /{itemId}
+  get-item-by-id: /api/v1/item/{itemId}
+  get-auction-by-id: /api/v1/auction/{auctionId}
+
+flag:
+    runRecomputeHighestBidsAfterBidExpires: false
 

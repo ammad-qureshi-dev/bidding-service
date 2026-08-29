@@ -1,6 +1,7 @@
 package com.bidder.bidding_service.http_client;
 
 import com.bidder.bidding_service.configs.CatalogServiceProperties;
+import dtos.response.AuctionResponse;
 import dtos.response.ItemResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,28 @@ public class CatalogServiceClient {
         } catch (RuntimeException e) {
             log.error("Item with ID = {} not found", itemId);
             throw new NoSuchElementException("Item not found");
+        }
+    }
+
+    public AuctionResponse getAuctionById(UUID auctionId) {
+        var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
+
+        var url = UriComponentsBuilder.fromUriString(baseUrl + props.getAuctionById()).buildAndExpand(auctionId).toUriString();
+
+        try {
+            log.info("Calling {}", url);
+            var auction = restClient.get().uri(url).retrieve().body(new ParameterizedTypeReference<ApiResponse<AuctionResponse>>() {
+            });
+
+            if (auction == null) {
+                log.error("Response was null for request {}", url);
+                throw new NoSuchElementException("No response received from catalog-service. Auction not found. Please check logs");
+            }
+
+            return auction.getData();
+        } catch (RuntimeException e) {
+            log.error("Internal error. Could not find auction (id = {}): ", auctionId, e);
+            throw new RuntimeException("Auction not found");
         }
     }
 }

@@ -16,18 +16,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import response.ApiResponse;
 
-import static com.bidder.bidding_service.utils.Constants.Controller.*;
-
 @Slf4j
 @RestController
-@RequestMapping(BASE_URI_V1 + "/bid")
+@RequestMapping("/api/v1/bid")
 @RequiredArgsConstructor
 public class BidController {
 
 	private final BidService bidService;
 
-	// ToDo: source the caller's identity from a validated principal once
-	// inter-service auth propagation (e.g. gateway-forwarded header) is wired up
 	@PostMapping
 	public ResponseEntity<ApiResponse<UUID>> createBid(@RequestHeader("X-App-User-Id") UUID bidderId,
 																@RequestBody BidRequest request) {
@@ -51,7 +47,7 @@ public class BidController {
 	public ResponseEntity<ApiResponse<Boolean>> acceptBid(@PathVariable UUID bidId,
 			@RequestHeader("X-App-User-Id") UUID bidderId) {
 
-		if (!bidService.isBidOwner(bidId, bidderId)) {
+		if (bidService.isBidOwner(bidId, bidderId)) {
 			log.error("Cannot accept bid - userId={} does not own bid={}", bidderId, bidId);
 			return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(false).build());
 		}

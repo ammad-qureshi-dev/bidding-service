@@ -2,6 +2,7 @@
 bidder.app */
 package com.bidder.bidding_service.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -10,9 +11,9 @@ import java.util.UUID;
 import com.bidder.bidding_service.http_client.CatalogServiceClient;
 import com.bidder.bidding_service.mappers.BidMapper;
 import com.bidder.bidding_service.repository.BidRepository;
-import com.bidder.bidding_service.utils.BidValidator;
 import config.EventTopics;
 import dtos.response.ItemResponse;
+import enums.AuctionStatus;
 import lombok.RequiredArgsConstructor;
 import models.TemplateName;
 import models.dtos.request.BidRequest;
@@ -41,7 +42,8 @@ public class BidService {
 		var bid = BidMapper.requestToEntity(request);
 		bid.setBidderId(bidderId);
 
-		validateBidCreation(bid, request.itemId());
+		validateAuction(request.auctionId(), bidderId);
+		validateBid(bid, request.itemId());
 
 		var previousActiveBid = bidRepository.findByItemIdAndStatus(bid.getItemId(), BidStatus.ACTIVE);
 		previousActiveBid.ifPresent(prev -> {
@@ -128,6 +130,10 @@ public class BidService {
 		bidRepository.save(acceptedBid);
 
 		// ToDo: publish "bid accepted" notification event once Kafka wiring is added
+
+		// ToDo: close auction
+
+
 	}
 
 	public boolean isBidOwner(UUID bidId, UUID userId) {
@@ -155,8 +161,9 @@ public class BidService {
 		});
 	}
 
-	public void validateBidCreation(Bid newBid, UUID itemId) {
+	public void validateBid(Bid newBid, UUID itemId) {
 		var item = catalogServiceClient.getItemById(itemId);
+
 		if (!isHighestBid(newBid, item)) {
 			throw new IllegalStateException("Bid amount must be higher than the current highest bid");
 		}
@@ -164,6 +171,24 @@ public class BidService {
 		if (!isAboveMinimumPrice(newBid, item)) {
 			throw new IllegalStateException("Bid amount must be higher than the minimum price on the item");
 		}
+	}
+
+	public void validateAuction(UUID auctionId, UUID bidderId) {
+		var auction = catalogServiceClient.getAuctionById(auctionId);
+
+		if (bidderId.equals(auction.ownerId())) {
+			throw new IllegalStateException("Auction owner cannot place bid on their own auction");
+		}
+
+		if (!auction.auctionStatus().equals(AuctionStatus.LIVE)) {
+			throw new IllegalStateException("Cannot place bid, the auction is " + auction.auctionStatus());
+		}
+
+		var now = LocalDateTime.now();
+		if (now.isBefore(auction.startTime()) || now.isAfter(auction.endTime())) {
+			throw new IllegalStateException("Cannot place bid, the bid is placed out of the range of the auction timing");
+		}
+
 	}
 
 	public void validateBidUpdate(Bid prevBid, UUID bidderId, Bid newBid, UUID itemId) {
