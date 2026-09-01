@@ -77,7 +77,7 @@ dependencies {
 
 	implementation 'com.bidder:notifications-model:2.1.1'
 	implementation 'com.bidder:common-model:0.0.3-SNAPSHOT'
-	implementation 'com.bidder:catalog-service-model:0.0.4'
+	implementation 'com.bidder:catalog-service-model:0.0.5'
 
 //	ToDo: check if we can remove this since there are not many auth-related items in this repo
 	implementation 'com.bidder:identity-auth-service:0.0.3'

@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "catalog-service")
 public record CatalogServiceProperties(
         String getItemById,
-        String getAuctionById
+        String getAuctionById,
+        String updateHighestBid
 ) {
 }

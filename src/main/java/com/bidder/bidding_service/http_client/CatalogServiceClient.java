@@ -1,6 +1,7 @@
 package com.bidder.bidding_service.http_client;
 
 import com.bidder.bidding_service.configs.CatalogServiceProperties;
+import dtos.request.UpdatedBidRequest;
 import dtos.response.AuctionResponse;
 import dtos.response.ItemResponse;
 import lombok.RequiredArgsConstructor;
@@ -71,4 +72,34 @@ public class CatalogServiceClient {
             throw new RuntimeException("Auction not found");
         }
     }
+
+    /**
+     * Attempts to update the item's current highest bid, if this bid request is valid. If bid request is valid, returns previous highest bid id
+     * @param request
+     * @return
+     */
+    public UUID updateHighestBid(UpdatedBidRequest request) {
+        var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
+
+        var url = UriComponentsBuilder.fromUriString(baseUrl + props.updateHighestBid()).buildAndExpand(request.itemId()).toUriString();
+
+        try {
+            log.info("Calling {}", url);
+            var response = restClient.put().uri(url)
+                    .body(request)
+                    .retrieve().body(new ParameterizedTypeReference<ApiResponse<UUID>>() {
+            });
+
+            if (response == null) {
+                log.error("Response was null for request {}", url);
+                throw new RuntimeException("No response received from catalog-service. Please check logs");
+            }
+
+            return response.getData();
+        } catch (Exception e) {
+            log.error("Error on {} with body {}", url, request, e);
+            throw e;
+        }
+    }
+
 }

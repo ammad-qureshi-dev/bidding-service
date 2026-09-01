@@ -69,13 +69,13 @@ public class BidController {
 		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(true).build());
 	}
 
-	@GetMapping("/{bidId}")
-	public ResponseEntity<ApiResponse<BidSummaryResponse>> getBidById(@PathVariable UUID bidId) {
-		var bid = bidService.getBid(bidId);
-		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<BidSummaryResponse>builder().data(bid).build());
+	@GetMapping("/search")
+	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getBidById(@RequestParam(required = true) List<UUID> bidIds) {
+		var response = bidService.getBids(bidIds);
+		return ResponseEntity.status(HttpStatus.OK).body(response);
 	}
 
-	@GetMapping("/my-bids")
+	@GetMapping("/search/my-bids")
 	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getMyBids(
 			@RequestHeader("X-App-User-Id") UUID appUserId) {
 		var myBids = bidService.getMyBids(appUserId);
@@ -83,7 +83,7 @@ public class BidController {
 				.body(ApiResponse.<List<BidSummaryResponse>>builder().data(myBids).build());
 	}
 
-	@GetMapping("/item/{itemId}")
+	@GetMapping("/search/item/{itemId}")
 	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getBidsForItem(@PathVariable UUID itemId) {
 		var bids = bidService.getBidsForItem(itemId);
 		return ResponseEntity.status(HttpStatus.OK)

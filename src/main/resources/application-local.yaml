@@ -52,6 +52,7 @@ identity-and-auth-service:
 catalog-service:
   get-item-by-id: /api/v1/item/{itemId}
   get-auction-by-id: /api/v1/auction/{auctionId}
+  update-highest-bid: /api/v1/item/{itemId}/update-highest-bid
 
 flag:
     runRecomputeHighestBidsAfterBidExpires: false
