@@ -1,8 +1,8 @@
-/* (C) 2026
+/* (C) 2026 
 bidder.app */
 package com.bidder.bidding_service.schedulers;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.bidder.bidding_service.repository.BidRepository;
 import com.bidder.bidding_service.services.BidService;
@@ -41,12 +41,12 @@ public class BidScheduler {
 		var itemIdsWithExpiredBids = bidRepository.findItemIdsWithExpiredBids();
 
 		if (itemIdsWithExpiredBids.isEmpty()) {
-			log.info("No items found with expired bids @ {}", LocalDateTime.now());
+			log.info("No items found with expired bids @ {}", Instant.now());
 			return;
 		}
 
 		itemIdsWithExpiredBids.forEach(itemId -> bidRepository.findByItemIdAndStatus(itemId, BidStatus.ACTIVE)
-				.filter(bid -> bid.getExpiresAt().isBefore(LocalDateTime.now()))
+				.filter(bid -> bid.getExpiresAt().isBefore(Instant.now()))
 				.ifPresent(bid -> bidService.rejectBid(bid.getId(), REJECT_REASON_BID_EXPIRED)));
 
 		log.info("BidScheduler: recomputeHighestBidsAfterBidExpires job completed");

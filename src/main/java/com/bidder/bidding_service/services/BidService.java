@@ -1,4 +1,4 @@
-/* (C) 2026
+/* (C) 2026 
 bidder.app */
 package com.bidder.bidding_service.services;
 
@@ -40,12 +40,7 @@ public class BidService {
 
 		if (bidId != null) {
 			kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-					new SendNotificationRequest(
-							bidderId,
-							TemplateName.BID_REQUEST_SENT,
-							Map.of(),
-							Map.of()
-					));
+					new SendNotificationRequest(bidderId, TemplateName.BID_REQUEST_SENT, Map.of(), Map.of()));
 		}
 
 		return bidId;
@@ -63,12 +58,7 @@ public class BidService {
 
 		if (newBidId != null) {
 			kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-					new SendNotificationRequest(
-							bidderId,
-							TemplateName.BID_REQUEST_SENT,
-							Map.of(),
-							Map.of()
-					));
+					new SendNotificationRequest(bidderId, TemplateName.BID_REQUEST_SENT, Map.of(), Map.of()));
 		}
 
 		return newBidId;
@@ -141,7 +131,6 @@ public class BidService {
 
 		// ToDo: close auction
 
-
 	}
 
 	public boolean isBidOwner(UUID bidId, UUID userId) {
@@ -163,16 +152,14 @@ public class BidService {
 
 		var foundIds = bids.stream().map(BidSummaryResponse::id).collect(Collectors.toSet());
 
-		var missingIds = bidIds.stream().filter(
-				id -> !foundIds.contains(id)
-		).toList();
+		var missingIds = bidIds.stream().filter(id -> !foundIds.contains(id)).toList();
 
-		var response = ApiResponse.<List<BidSummaryResponse>>builder()
-				.data(bids)
-				.build();
+		var response = ApiResponse.<List<BidSummaryResponse>>builder().data(bids).build();
 
 		if (!missingIds.isEmpty()) {
-			var errorMessages = missingIds.stream().map(e -> ApiMessage.builder().type(ResponseType.WARNING).content("Some bids not found").build()).toList();
+			var errorMessages = missingIds.stream()
+					.map(e -> ApiMessage.builder().type(ResponseType.WARNING).content("Some bids not found").build())
+					.toList();
 			response.setMessages(errorMessages);
 		}
 
@@ -218,7 +205,8 @@ public class BidService {
 		bidRepository.save(bid);
 
 		// Validate bid and set current bid as the highest bid for item
-		var updateBidRequest = new UpdatedBidRequest(request.auctionId(), request.itemId(), bidderId, bid.getId(), request.amount());
+		var updateBidRequest = new UpdatedBidRequest(request.auctionId(), request.itemId(), bidderId, bid.getId(),
+				request.amount());
 		var previousActiveBid = updateHighestBid(updateBidRequest, bid);
 
 		// Deactivate the previous highest bid

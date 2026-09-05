@@ -1,4 +1,4 @@
-/* (C) 2026
+/* (C) 2026 
 bidder.app */
 package com.bidder.bidding_service.controllers;
 
@@ -26,7 +26,7 @@ public class BidController {
 
 	@PostMapping
 	public ResponseEntity<ApiResponse<UUID>> createBid(@RequestHeader("X-App-User-Id") UUID bidderId,
-																@RequestBody BidRequest request) {
+			@RequestBody BidRequest request) {
 		var response = bidService.createBid(request, bidderId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<UUID>builder().data(response).build());
 	}
@@ -70,7 +70,8 @@ public class BidController {
 	}
 
 	@GetMapping("/search")
-	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getBidById(@RequestParam(required = true) List<UUID> bidIds) {
+	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getBidById(
+			@RequestParam(required = true) List<UUID> bidIds) {
 		var response = bidService.getBids(bidIds);
 		return ResponseEntity.status(HttpStatus.OK).body(response);
 	}

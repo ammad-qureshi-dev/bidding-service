@@ -7,7 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 import java.util.UUID;
 
 @Setter
@@ -46,8 +47,8 @@ public class Bid extends BaseEntity {
 	private String statusDescription;
 
 	@Builder.Default
-	private LocalDateTime placedAt = LocalDateTime.now();
+	private Instant placedAt = Instant.now();
 
 	// Defaults to auction end time
-	private LocalDateTime expiresAt;
+	private Instant expiresAt;
 }

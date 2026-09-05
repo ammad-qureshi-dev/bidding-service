@@ -1,8 +1,9 @@
-/* (C) 2026
+/* (C) 2026 
 bidder.app */
 package com.bidder.bidding_service.mappers;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import models.dtos.request.BidRequest;
 import models.dtos.response.summary.BidSummaryResponse;
@@ -15,10 +16,11 @@ public class BidMapper {
 	private static final int DEFAULT_EXPIRY_DAYS = 7;
 
 	public static Bid requestToEntity(BidRequest request) {
-		var timeNow = LocalDateTime.now();
+		var timeNow = Instant.now();
 		return Bid.builder().auctionId(request.auctionId()).itemId(request.itemId()).amount(request.amount())
 				.placedAt(timeNow)
-				.expiresAt(request.expiresAt() == null ? timeNow.plusDays(DEFAULT_EXPIRY_DAYS)
+				.expiresAt(request.expiresAt() == null
+						? timeNow.plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS)
 						: request.expiresAt())
 				.build();
 	}
@@ -28,7 +30,7 @@ public class BidMapper {
 			return null;
 		}
 
-		return new BidSummaryResponse(b.getId(), b.getItemId(), b.getBidderId(), b.getAmount(), b.getStatus(), b.getStatusDescription(),
-				b.getPlacedAt(), b.getExpiresAt());
+		return new BidSummaryResponse(b.getId(), b.getItemId(), b.getBidderId(), b.getAmount(), b.getStatus(),
+				b.getStatusDescription(), b.getPlacedAt(), b.getExpiresAt());
 	}
 }

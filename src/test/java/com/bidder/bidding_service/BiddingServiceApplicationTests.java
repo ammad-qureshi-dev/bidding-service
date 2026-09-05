@@ -1,3 +1,5 @@
+/* (C) 2026 
+bidder.app */
 package com.bidder.bidding_service;
 
 import org.junit.jupiter.api.Test;
