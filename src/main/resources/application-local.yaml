@@ -57,3 +57,4 @@ catalog-service:
 flag:
     runRecomputeHighestBidsAfterBidExpires: false
 
+client-url: http://localhost:3000

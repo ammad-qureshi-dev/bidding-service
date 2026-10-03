@@ -10,6 +10,9 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
 	@Bean
+	// ToDo: [SECURITY CONCERN] -- no connect/read timeouts are configured on this RestClient. A
+	// slow or hanging catalog-service (or an attacker controlling/MITM-ing that endpoint) can
+	// tie up request threads indefinitely, creating a denial-of-service vector for this service.
 	public RestClient restClient(RestClient.Builder builder) {
 		return builder.build();
 	}

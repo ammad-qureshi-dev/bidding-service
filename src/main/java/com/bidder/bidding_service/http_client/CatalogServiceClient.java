@@ -88,7 +88,7 @@ public class CatalogServiceClient {
 	 * @param request
 	 * @return
 	 */
-	public UUID updateHighestBid(UpdatedBidRequest request) {
+	public UUID setHighestBidForItem(UpdatedBidRequest request) {
 		var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
 
 		var url = UriComponentsBuilder.fromUriString(baseUrl + props.updateHighestBid())
