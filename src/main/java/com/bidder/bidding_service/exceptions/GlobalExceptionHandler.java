@@ -28,10 +28,14 @@ public class GlobalExceptionHandler {
 	}
 
 	@ExceptionHandler(RuntimeException.class)
-	// ToDo: [SECURITY CONCERN] -- returns ex.getMessage() from ANY uncaught RuntimeException
-	// (including ones originating from downstream HTTP/DB clients) straight to the API caller.
-	// This can leak internal implementation details (service URLs, DB/driver error text, stack
-	// info) to unauthenticated clients. Log the full exception server-side and return a generic
+	// ToDo: [SECURITY CONCERN] -- returns ex.getMessage() from ANY uncaught
+	// RuntimeException
+	// (including ones originating from downstream HTTP/DB clients) straight to the
+	// API caller.
+	// This can leak internal implementation details (service URLs, DB/driver error
+	// text, stack
+	// info) to unauthenticated clients. Log the full exception server-side and
+	// return a generic
 	// message to the client instead.
 	public ResponseEntity<ApiResponse<?>> handleGeneric(RuntimeException ex, WebRequest request) {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(generateResponseBody(ex.getMessage()));

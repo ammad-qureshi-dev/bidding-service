@@ -4,12 +4,14 @@ package com.bidder.bidding_service.http_client;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.bidder.bidding_service.configs.CatalogServiceProperties;
 import dtos.request.UpdatedBidRequest;
 import dtos.response.AuctionResponse;
 import dtos.response.ItemResponse;
+import enums.AuctionStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -31,9 +33,8 @@ public class CatalogServiceClient {
 
 	private final Map<String, String> internalServiceBaseUrls;
 
-	public ItemResponse getItemById(UUID itemId) {
+	public Optional<ItemResponse> getItemById(UUID itemId) {
 		var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
-
 		var url = UriComponentsBuilder.fromUriString(baseUrl + props.getItemById()).buildAndExpand(itemId)
 				.toUriString();
 
@@ -45,15 +46,15 @@ public class CatalogServiceClient {
 
 			if (item == null) {
 				log.error("Response was null for request {}", url);
-				throw new RuntimeException(
-						"No response received from catalog-service. Item not found. Please check logs");
+				return Optional.empty();
 			}
 
-			return item.getData();
+			return Optional.of(item.getData());
 		} catch (RuntimeException e) {
 			log.error("Item with ID = {} not found", itemId);
-			throw new NoSuchElementException("Item not found");
 		}
+
+		return Optional.empty();
 	}
 
 	public AuctionResponse getAuctionById(UUID auctionId) {
@@ -112,4 +113,27 @@ public class CatalogServiceClient {
 		}
 	}
 
+	public void updateAuctionStatus(UUID auctionId, AuctionStatus status) {
+		var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
+
+		var url = UriComponentsBuilder.fromUriString(baseUrl + props.updateAuctionStatus())
+				.buildAndExpand(Map.of("auctionId", auctionId, "status", status))
+				.toUriString();
+
+		try {
+			log.info("Calling {}", url);
+			var response = restClient.put().uri(url).retrieve()
+					.body(new ParameterizedTypeReference<ApiResponse<UUID>>() {
+					});
+
+			if (response == null) {
+				log.error("Response was null for request {}", url);
+				throw new RuntimeException("No response received from catalog-service. Please check logs");
+			}
+
+		} catch (Exception e) {
+			log.error("Error on {}", url, e);
+			throw e;
+		}
+	}
 }

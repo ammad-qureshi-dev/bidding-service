@@ -6,16 +6,22 @@ import java.util.List;
 import java.util.UUID;
 
 import com.bidder.bidding_service.services.BidService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.dtos.request.BidRejectRequest;
 import models.dtos.request.BidRequest;
 import models.dtos.response.summary.BidSummaryResponse;
+import models.entities.BidStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import response.ApiResponse;
 
+// ToDo: [SECURITY CONCERN] -- every endpoint below trusts the client-supplied X-App-User-Id
+// header as the caller's identity with no signature/token verification (see SecurityConfig,
+// which permits all requests). Any caller can impersonate any bidder simply by setting this
+// header, enabling bid spoofing and access to other users' data (e.g. getMyBids).
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/bid")
@@ -26,7 +32,7 @@ public class BidController {
 
 	@PostMapping
 	public ResponseEntity<ApiResponse<UUID>> createBid(@RequestHeader("X-App-User-Id") UUID bidderId,
-			@RequestBody BidRequest request) {
+			@RequestBody @Valid BidRequest request) {
 		var response = bidService.createBid(request, bidderId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<UUID>builder().data(response).build());
 	}
@@ -45,27 +51,16 @@ public class BidController {
 
 	@PostMapping("/accept/{bidId}")
 	public ResponseEntity<ApiResponse<Boolean>> acceptBid(@PathVariable UUID bidId,
-			@RequestHeader("X-App-User-Id") UUID bidderId) {
-
-		if (bidService.isBidOwner(bidId, bidderId)) {
-			log.error("Cannot accept bid - userId={} does not own bid={}", bidderId, bidId);
-			return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(false).build());
-		}
-
-		bidService.acceptBid(bidId);
+			@RequestHeader("X-App-User-Id") UUID ownerId) throws IllegalAccessException {
+		bidService.acceptBid(bidId, ownerId);
 		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(true).build());
 	}
 
 	@PostMapping("/reject/{bidId}")
 	public ResponseEntity<ApiResponse<Boolean>> rejectBid(@PathVariable UUID bidId,
-			@RequestBody BidRejectRequest request, @RequestHeader("X-App-User-Id") UUID bidderId) {
-
-		if (bidService.isBidOwner(bidId, bidderId)) {
-			log.error("Cannot reject you're own bid");
-			return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(false).build());
-		}
-
-		bidService.rejectBid(bidId, request.rejectReason());
+			@RequestBody BidRejectRequest request, @RequestHeader("X-App-User-Id") UUID ownerId)
+			throws IllegalAccessException {
+		bidService.rejectBid(bidId, ownerId, request);
 		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(true).build());
 	}
 
@@ -89,5 +84,19 @@ public class BidController {
 		var bids = bidService.getBidsForItem(itemId);
 		return ResponseEntity.status(HttpStatus.OK)
 				.body(ApiResponse.<List<BidSummaryResponse>>builder().data(bids).build());
+	}
+
+	@GetMapping("/item/{itemId}/top-ten-bids")
+	public ResponseEntity<ApiResponse<List<BidSummaryResponse>>> getTopTenBids(@PathVariable UUID itemId) {
+		var bids = bidService.getTopTenBidsForItem(itemId);
+		return ResponseEntity.status(HttpStatus.OK)
+				.body(ApiResponse.<List<BidSummaryResponse>>builder().data(bids).build());
+	}
+
+	@PutMapping("/internal/bulk/update-bids-statuses/{status}")
+	public ResponseEntity<ApiResponse<Boolean>> internalBulkUpdateBidsStatuses(@RequestParam List<UUID> bidIds,
+			@PathVariable BidStatus status) {
+		bidService.internalBulkUpdateBidsStatuses(bidIds, status);
+		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<Boolean>builder().data(true).build());
 	}
 }

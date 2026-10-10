@@ -29,7 +29,7 @@ public interface BidRepository extends JpaRepository<Bid, UUID> {
 			and b.status in (models.entities.BidStatus.ACTIVE, models.entities.BidStatus.OUTBID)
 			order by b.amount desc
 			""")
-	List<Bid> findUnexpiredBids(@Param("itemId") UUID itemId);
+	List<Bid> findMaxValidBidByStatus(@Param("itemId") UUID itemId);
 
 	@Query("""
 			select b
@@ -41,7 +41,24 @@ public interface BidRepository extends JpaRepository<Bid, UUID> {
 
 	List<Bid> findByItemId(UUID itemId);
 
-	Optional<Bid> findByItemIdAndStatus(UUID itemId, BidStatus status);
+	@Query("""
+			select b
+			from Bid b
+			where b.itemId = :itemId
+			order by
+				case b.status
+					when models.entities.BidStatus.WINNER then 0
+					when models.entities.BidStatus.ACTIVE then 1
+					when models.entities.BidStatus.PENDING_VALIDATION then 2
+					when models.entities.BidStatus.REJECTED then 3
+					when models.entities.BidStatus.OUTBID then 4
+					when models.entities.BidStatus.WITHDRAWN then 5
+					else 6
+				end,
+				b.amount desc
+			limit 10
+			""")
+	List<Bid> findTopTenBids(@Param("itemId") UUID itemId);
 
 	boolean existsByItemIdAndStatus(UUID itemId, BidStatus status);
 }

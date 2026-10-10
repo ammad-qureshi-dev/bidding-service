@@ -18,9 +18,12 @@ import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 public class KafkaProducerConfig {
 
 	@Bean
-	// ToDo: [SECURITY CONCERN] -- no security.protocol/SASL/SSL settings are configured for the
-	// Kafka producer, so unless overridden elsewhere it will connect to the broker over plaintext
-	// with no authentication, allowing anyone on the network to read or spoof bid notification
+	// ToDo: [SECURITY CONCERN] -- no security.protocol/SASL/SSL settings are
+	// configured for the
+	// Kafka producer, so unless overridden elsewhere it will connect to the broker
+	// over plaintext
+	// with no authentication, allowing anyone on the network to read or spoof bid
+	// notification
 	// events.
 	public ProducerFactory<String, Object> producerFactory(
 			@Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {

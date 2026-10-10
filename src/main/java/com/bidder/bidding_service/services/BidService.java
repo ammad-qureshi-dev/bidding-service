@@ -10,14 +10,17 @@ import com.bidder.bidding_service.mappers.BidMapper;
 import com.bidder.bidding_service.repository.BidRepository;
 import config.EventTopics;
 import dtos.request.UpdatedBidRequest;
+import enums.AuctionStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.TemplateName;
+import models.dtos.request.BidRejectRequest;
 import models.dtos.request.BidRequest;
-import models.dtos.request.SendNotificationRequest;
+import models.dtos.request.NotifyRequest;
 import models.dtos.response.summary.BidSummaryResponse;
 import models.entities.Bid;
 import models.entities.BidStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +33,13 @@ import response.ResponseType;
 @RequiredArgsConstructor
 public class BidService {
 
+	@Value("${client-url}")
+	private String clientUrl;
+
 	private final BidRepository bidRepository;
 	private final CatalogServiceClient catalogServiceClient;
 	private final KafkaTemplate<String, Object> kafkaTemplate;
+	private final BidValidation bidValidation;
 
 	@Transactional
 	public UUID createBid(BidRequest request, UUID bidderId) {
@@ -40,7 +47,9 @@ public class BidService {
 
 		if (bidId != null) {
 			kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-					new SendNotificationRequest(bidderId, TemplateName.BID_REQUEST_SENT, Map.of(), Map.of()));
+					new NotifyRequest(bidderId, TemplateName.BID_REQUEST_SENT, null,
+							Map.of("bidAmount", request.amount(), "itemName", request.itemName(),
+									"auctionUrl", generateAuctionUrl(request.auctionId(), request.itemId()))));
 		}
 
 		return bidId;
@@ -58,7 +67,7 @@ public class BidService {
 
 		if (newBidId != null) {
 			kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-					new SendNotificationRequest(bidderId, TemplateName.BID_REQUEST_SENT, Map.of(), Map.of()));
+					new NotifyRequest(bidderId, TemplateName.BID_REQUEST_SENT, null, Map.of()));
 		}
 
 		return newBidId;
@@ -68,7 +77,7 @@ public class BidService {
 		Optional<UUID> previousHighestBidId = Optional.empty();
 
 		try {
-			var previousBid = catalogServiceClient.updateHighestBid(request);
+			var previousBid = catalogServiceClient.setHighestBidForItem(request);
 
 			if (previousBid != null) {
 				previousHighestBidId = Optional.of(previousBid);
@@ -90,21 +99,43 @@ public class BidService {
 		return bidRepository.findById(id).orElseThrow(() -> new IllegalStateException("Bid cannot be found"));
 	}
 
-	public void rejectBid(UUID bidId, String rejectReason) {
+	@Transactional
+	public void rejectBid(UUID bidId, UUID ownerId, BidRejectRequest request) throws IllegalAccessException {
 		final var bid = getBidById(bidId);
 
+		bidValidation.rejectBidValidation(bid, ownerId);
+
 		bid.setStatus(BidStatus.REJECTED);
-		bid.setStatusDescription(rejectReason);
+		bid.setStatusDescription(request.rejectReason());
 		bidRepository.save(bid);
 
-		// ToDo: publish "bid rejected" notification event once Kafka wiring is added
+		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(), new NotifyRequest(
+				bid.getBidderId(), TemplateName.BID_REQUEST_REJECTED, null, Map.of("itemName", request.itemName(), "bidAmount", bid.getAmount(), "appUrl", generateAuctionHomeUrl())
+		));
 
 		// If the bid that got rejected was the active bid, promote the next highest
-		promoteNextHighestBid(bid.getItemId());
+		var nextBid = findNextHighestUnexpiredBidForItem(bid.getItemId());
+
+		if (nextBid.isEmpty()) {
+			catalogServiceClient
+					.setHighestBidForItem(new UpdatedBidRequest(bid.getAuctionId(), bid.getItemId(), null, null, null));
+			return;
+		} else {
+			catalogServiceClient.setHighestBidForItem(new UpdatedBidRequest(bid.getAuctionId(), bid.getItemId(),
+					bid.getBidderId(), bid.getId(), nextBid.get().getAmount()));
+
+			kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(), new NotifyRequest(
+					bid.getBidderId(), TemplateName.LEADING_BID, null, Map.of("title", request.itemName(), "auctionUrl", generateAuctionHomeUrl())
+			));
+		}
+
+		var nextHighestBid = nextBid.get();
+		nextHighestBid.setStatus(BidStatus.ACTIVE);
+		bidRepository.save(nextHighestBid);
 	}
 
 	public Optional<Bid> findNextHighestUnexpiredBidForItem(UUID itemId) {
-		var activeBids = bidRepository.findUnexpiredBids(itemId);
+		var activeBids = bidRepository.findMaxValidBidByStatus(itemId);
 
 		if (activeBids == null || activeBids.isEmpty()) {
 			return Optional.empty();
@@ -113,7 +144,17 @@ public class BidService {
 		return Optional.of(activeBids.getFirst());
 	}
 
-	public void acceptBid(UUID bidId) {
+	public void acceptBid(UUID bidId, UUID ownerId) throws IllegalAccessException {
+		final var bid = getBidById(bidId);
+		if (bid.getBidderId().equals(ownerId)) {
+			throw new IllegalAccessException("Owner cannot accept their own bid");
+		}
+
+		final var auction = catalogServiceClient.getAuctionById(bid.getAuctionId());
+		if (!auction.ownerId().equals(ownerId)) {
+			throw new IllegalAccessException("Cannot accept this bid as you don't own this bid");
+		}
+
 		final var acceptedBid = getBidById(bidId);
 
 		if (bidRepository.existsByItemIdAndStatus(acceptedBid.getItemId(), BidStatus.WINNER)) {
@@ -127,10 +168,13 @@ public class BidService {
 		acceptedBid.setStatus(BidStatus.WINNER);
 		bidRepository.save(acceptedBid);
 
-		// ToDo: publish "bid accepted" notification event once Kafka wiring is added
+		final var item = catalogServiceClient.getItemById(bid.getItemId());
 
-		// ToDo: close auction
+        item.ifPresent(itemResponse -> kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(), new NotifyRequest(
+                bid.getBidderId(), TemplateName.BID_REQUEST_ACCEPTED, null, Map.of("title", itemResponse.title(), "auctionUrl", generateAuctionHomeUrl())
+        )));
 
+		catalogServiceClient.updateAuctionStatus(bid.getAuctionId(), AuctionStatus.CLOSED);
 	}
 
 	public boolean isBidOwner(UUID bidId, UUID userId) {
@@ -166,15 +210,6 @@ public class BidService {
 		return response;
 	}
 
-	private List<BidSummaryResponse> getBidsById(List<UUID> bidIds) {
-		if (bidIds == null || bidIds.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		var bids = bidRepository.findAllById(bidIds);
-		return bids.stream().map(BidMapper::entityToSummary).toList();
-	}
-
 	public List<BidSummaryResponse> getMyBids(UUID appUserId) {
 		var myBids = bidRepository.findBidsByBidderId(appUserId);
 		return myBids.stream().map(BidMapper::entityToSummary).toList();
@@ -184,11 +219,8 @@ public class BidService {
 		return bidRepository.findByItemId(itemId).stream().map(BidMapper::entityToSummary).toList();
 	}
 
-	private void promoteNextHighestBid(UUID itemId) {
-		findNextHighestUnexpiredBidForItem(itemId).ifPresent(next -> {
-			next.setStatus(BidStatus.ACTIVE);
-			bidRepository.save(next);
-		});
+	public List<BidSummaryResponse> getTopTenBidsForItem(UUID itemId) {
+		return bidRepository.findTopTenBids(itemId).stream().map(BidMapper::entityToSummary).toList();
 	}
 
 	private static boolean isOriginalBidder(Bid bid, UUID bidderId) {
@@ -219,4 +251,31 @@ public class BidService {
 		return bid.getId();
 	}
 
+	private List<BidSummaryResponse> getBidsById(List<UUID> bidIds) {
+		if (bidIds == null || bidIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		var bids = bidRepository.findAllById(bidIds);
+		return bids.stream().map(BidMapper::entityToSummary).toList();
+	}
+
+	private String generateAuctionUrl(UUID auctionId, UUID itemId) {
+		return clientUrl + "/auctions/" + auctionId + "/items/" + itemId;
+	}
+
+	private String generateAuctionHomeUrl() {
+		return clientUrl + "/auctions";
+	}
+
+	public void internalBulkUpdateBidsStatuses(List<UUID> bidIds, BidStatus status) {
+		if (bidIds == null || bidIds.isEmpty()) {
+			log.info("No bids were provided to bulk update status");
+			return;
+		}
+
+		var bids = bidRepository.findAllById(bidIds);
+		bids.forEach(e -> e.setStatus(status));
+		bidRepository.saveAll(bids);
+	}
 }
