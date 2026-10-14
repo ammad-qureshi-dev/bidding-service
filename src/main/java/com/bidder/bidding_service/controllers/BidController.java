@@ -32,14 +32,14 @@ public class BidController {
 
 	@PostMapping
 	public ResponseEntity<ApiResponse<UUID>> createBid(@RequestHeader("X-App-User-Id") UUID bidderId,
-			@RequestBody @Valid BidRequest request) {
+			@RequestBody @Valid BidRequest request) throws IllegalAccessException {
 		var response = bidService.createBid(request, bidderId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<UUID>builder().data(response).build());
 	}
 
 	@PutMapping("/{bidId}")
 	public ResponseEntity<ApiResponse<UUID>> updateBid(@PathVariable UUID bidId, @RequestBody BidRequest request,
-			@RequestHeader("X-App-User-Id") UUID bidderId) {
+			@RequestHeader("X-App-User-Id") UUID bidderId) throws IllegalAccessException {
 		if (!bidService.isBidOwner(bidId, bidderId)) {
 			log.error("Cannot update bid - userId={} does not own bid={}", bidderId, bidId);
 			throw new IllegalStateException("Cannot update bid - user does not own bid");

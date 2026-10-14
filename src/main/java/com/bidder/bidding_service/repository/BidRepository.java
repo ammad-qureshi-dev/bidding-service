@@ -15,11 +15,11 @@ import org.springframework.data.repository.query.Param;
 public interface BidRepository extends JpaRepository<Bid, UUID> {
 
 	@Query("""
-			select distinct b.itemId
+			select b
 			from Bid b
 			where b.expiresAt <= CURRENT_TIMESTAMP
 			""")
-	List<UUID> findItemIdsWithExpiredBids();
+	List<Bid> findItemIdsWithExpiredBids();
 
 	@Query("""
 			select b
@@ -38,6 +38,8 @@ public interface BidRepository extends JpaRepository<Bid, UUID> {
 			order by b.placedAt
 			""")
 	List<Bid> findBidsByBidderId(@Param("bidderId") UUID bidderId);
+
+	Optional<Bid> findByItemIdAndStatus(UUID itemId, BidStatus status);
 
 	List<Bid> findByItemId(UUID itemId);
 

@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.bidder.bidding_service.configs.CatalogServiceProperties;
+import dtos.request.AcceptingBidsRequest;
 import dtos.request.UpdatedBidRequest;
 import dtos.response.AuctionResponse;
 import dtos.response.ItemResponse;
@@ -16,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 import response.ApiResponse;
 
@@ -50,8 +53,12 @@ public class CatalogServiceClient {
 			}
 
 			return Optional.of(item.getData());
-		} catch (RuntimeException e) {
-			log.error("Item with ID = {} not found", itemId);
+		} catch (ResourceAccessException e) {
+			// catalog-service is unreachable -- don't treat this as a missing item
+			log.error("Could not reach catalog-service on {}", url, e);
+			throw e;
+		} catch (RestClientResponseException e) {
+			log.error("Item with ID = {} not found (status {})", itemId, e.getStatusCode(), e);
 		}
 
 		return Optional.empty();
@@ -117,8 +124,7 @@ public class CatalogServiceClient {
 		var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
 
 		var url = UriComponentsBuilder.fromUriString(baseUrl + props.updateAuctionStatus())
-				.buildAndExpand(Map.of("auctionId", auctionId, "status", status))
-				.toUriString();
+				.buildAndExpand(Map.of("auctionId", auctionId, "status", status)).toUriString();
 
 		try {
 			log.info("Calling {}", url);
@@ -133,6 +139,39 @@ public class CatalogServiceClient {
 
 		} catch (Exception e) {
 			log.error("Error on {}", url, e);
+			throw e;
+		}
+	}
+
+	/**
+	 * Sets whether the item is currently accepting bids. Returns the result
+	 * reported by catalog-service
+	 *
+	 * @param itemId
+	 * @param acceptingBids
+	 * @return
+	 */
+	public Boolean setAcceptingBids(UUID itemId, boolean acceptingBids) {
+		var baseUrl = internalServiceBaseUrls.get(CATALOG_SERVICE);
+
+		var url = UriComponentsBuilder.fromUriString(baseUrl + props.acceptingBids()).buildAndExpand(itemId)
+				.toUriString();
+		var request = new AcceptingBidsRequest(acceptingBids);
+
+		try {
+			log.info("Calling {}", url);
+			var response = restClient.put().uri(url).body(request).retrieve()
+					.body(new ParameterizedTypeReference<ApiResponse<Boolean>>() {
+					});
+
+			if (response == null) {
+				log.error("Response was null for request {}", url);
+				throw new RuntimeException("No response received from catalog-service. Please check logs");
+			}
+
+			return response.getData();
+		} catch (Exception e) {
+			log.error("Error on {} with body {}", url, request, e);
 			throw e;
 		}
 	}

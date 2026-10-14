@@ -53,8 +53,10 @@ catalog-service:
   get-item-by-id: /api/v1/item/{itemId}
   get-auction-by-id: /api/v1/auction/view/{auctionId}
   update-highest-bid: /api/v1/item/{itemId}/update-highest-bid
+  update-auction-status: /api/v1/auction/{auctionId}/status/{status}
+  accepting-bids: /api/v1/item/{itemId}/accepting-bids
 
 flag:
-    runRecomputeHighestBidsAfterBidExpires: false
+    runRecomputeHighestBidsAfterBidExpires: true
 
 client-url: http://localhost:3000

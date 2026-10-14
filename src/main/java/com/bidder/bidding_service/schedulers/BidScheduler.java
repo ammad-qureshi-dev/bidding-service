@@ -8,13 +8,10 @@ import com.bidder.bidding_service.repository.BidRepository;
 import com.bidder.bidding_service.services.BidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import models.entities.BidStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import static com.bidder.bidding_service.utils.Constants.Messages.REJECT_REASON_BID_EXPIRED;
 
 @Slf4j
 @Component
@@ -38,16 +35,14 @@ public class BidScheduler {
 
 		log.info("BidScheduler: starting recomputeHighestBidsAfterBidExpires job...");
 
-		var itemIdsWithExpiredBids = bidRepository.findItemIdsWithExpiredBids();
+		var expiredBids = bidRepository.findItemIdsWithExpiredBids();
 
-		if (itemIdsWithExpiredBids.isEmpty()) {
+		if (expiredBids.isEmpty()) {
 			log.info("No items found with expired bids @ {}", Instant.now());
 			return;
 		}
 
-		itemIdsWithExpiredBids.forEach(itemId -> bidRepository.findByItemIdAndStatus(itemId, BidStatus.ACTIVE)
-				.filter(bid -> bid.getExpiresAt().isBefore(Instant.now()))
-				.ifPresent(bid -> bidService.rejectBid(bid.getId(), REJECT_REASON_BID_EXPIRED)));
+		expiredBids.forEach(bidService::processExpiredBid);
 
 		log.info("BidScheduler: recomputeHighestBidsAfterBidExpires job completed");
 	}
