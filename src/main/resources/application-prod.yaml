@@ -20,7 +20,8 @@ spring:
       # This clears any cached prepared statements before reusing the connection.
       connection-init-sql: "DISCARD ALL"
   jpa:
-    open-in-view: false
+    # matches local (Boot default): entities like Auction.items are lazy-loaded after the service returns
+    open-in-view: true
     show-sql: false
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
