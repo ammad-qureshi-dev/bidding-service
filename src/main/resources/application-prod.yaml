@@ -1,0 +1,95 @@
+spring:
+  application:
+    name: bidding-service
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  datasource:
+    # prepareThreshold=0 is required behind a transaction-mode pooler (Supabase/PgBouncer)
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:6543}/${DB_NAME:postgres}?prepareThreshold=0&sslmode=${DB_SSL_MODE:require}
+    username: ${DB_USER}
+    password: ${DB_PWD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: 10000
+      max-lifetime: 1800000
+      # This clears any cached prepared statements before reusing the connection.
+      connection-init-sql: "DISCARD ALL"
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+      naming:
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  output:
+    ansi:
+      enabled: NEVER
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:bidder-kafka-bidder.i.aivencloud.com:15237}
+    # Aiven: SASL (SCRAM) auth over SSL, trusting Aiven's CA certificate (ca.pem)
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-256
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME}" password="${KAFKA_PASSWORD}";
+      ssl.truststore.type: PEM
+      ssl.truststore.location: ${KAFKA_TRUSTSTORE_LOCATION:/etc/secrets/ca.pem}
+      ssl.endpoint.identification.algorithm: https
+
+server:
+  # Render injects PORT
+  port: ${PORT:8083}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    root: INFO
+    com.bidder.bidding_service: INFO
+
+bidder-internal-services:
+  identity-and-auth-service: ${IDENTITY_AND_AUTH_SERVICE_URL:http://localhost:8084}
+  catalog-service: ${CATALOG_SERVICE_URL:http://localhost:8082}
+
+identity-and-auth-service:
+  get-preferred-contact: /api/v1/identity-and-auth/app-user/contacts/preferred-contact-method
+
+catalog-service:
+  get-item-by-id: /api/v1/item/{itemId}
+  get-auction-by-id: /api/v1/auction/view/{auctionId}
+  update-highest-bid: /api/v1/item/{itemId}/update-highest-bid
+  update-auction-status: /api/v1/auction/{auctionId}/status/{status}
+  accepting-bids: /api/v1/item/{itemId}/accepting-bids
+
+flag:
+  runRecomputeHighestBidsAfterBidExpires: ${RUN_RECOMPUTE_HIGHEST_BIDS:true}
+
+client-url: ${CLIENT_URL:https://biddr-frontend.onrender.com}

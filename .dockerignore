@@ -1,0 +1,12 @@
+**/build
+.gradle
+.idea
+.claude
+.git
+**/.DS_Store
+HELP.md
+*.zip
+
+# config holding secrets must never be baked into the image -- supply env vars at runtime
+**/*.properties
+!gradle/wrapper/gradle-wrapper.properties

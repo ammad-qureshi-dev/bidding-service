@@ -1,3 +1,9 @@
 spring:
   application:
     name: bidding-service
+  profiles:
+    # Used when no profile is set; run locally with SPRING_PROFILES_ACTIVE=local
+    default: prod
+server:
+  # Render injects PORT
+  port: ${PORT:8083}
