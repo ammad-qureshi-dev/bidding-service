@@ -79,8 +79,10 @@ public class BidService {
 		try {
 			var previousBid = catalogServiceClient.setHighestBidForItem(request);
 
-			if (previousBid != null) {
-				previousHighestBidId = Optional.of(previousBid);
+			// catalog returns null both for the first bid on an item (no previous highest
+			// bid) and when the item isn't accepting bids, so confirm which one it was
+			if (previousBid != null || isHighestBidForItem(bid)) {
+				previousHighestBidId = Optional.ofNullable(previousBid);
 				bid.setStatus(BidStatus.ACTIVE);
 			} else {
 				bid.setStatus(BidStatus.REJECTED);
@@ -96,6 +98,11 @@ public class BidService {
 		}
 
 		return previousHighestBidId;
+	}
+
+	private boolean isHighestBidForItem(Bid bid) {
+		return catalogServiceClient.getItemById(bid.getItemId()).map(item -> bid.getId().equals(item.highestBidId()))
+				.orElse(false);
 	}
 
 	public Bid getBidById(UUID id) {
